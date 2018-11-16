@@ -1,0 +1,23 @@
+{
+  "name": "allmygamesscraper",
+  "version": "1.0.0",
+  "description": "Node service that uses Puppeteer to scrape game profile data from Xbox Live.",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "config": "^2.0.1",
+    "jquery": "^3.3.1",
+    "puppeteer": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/config": "0.0.34",
+    "@types/jquery": "^3.3.22",
+    "@types/puppeteer": "^1.10.0"
+  }
+}

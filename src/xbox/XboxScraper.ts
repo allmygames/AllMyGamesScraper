@@ -1,0 +1,103 @@
+const puppeteer = require('puppeteer');
+import XboxGame from './XboxGame';
+var $ = require('jquery');
+
+export default class XboxScraper {
+    public Username: string;
+    public Password: string;
+
+    constructor(username: string, password: string) {
+        this.Username = username;
+        this.Password = password;
+    }
+
+    public async ScrapeXboxGames(gamertag: string): Promise<XboxGame[]> {
+        let url: string = "https://account.xbox.com/en-us/profile?gamertag=" + gamertag + "&activetab=main:mainTab2";
+
+        // Create browser page
+        console.log("Starting...");
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+
+        // Navigate to login page
+        console.log("Navigating to login page...");
+        await page.goto(url, { waitUntil: 'networkidle0' });
+
+        // Enter username
+        console.log("Entering username...");
+        await page.type("#i0116", this.Username);
+        await page.click("#idSIButton9");
+
+        // Wait for UI to update after click
+        await page.waitForSelector("#i0118", {
+            visible: true
+        });
+
+        await page.waitFor(1000);
+
+        // Enter password and submit form
+        console.log("Entering password...");
+        await page.type("#i0118", this.Password);
+        
+        // Wait for redirect to profile page
+        // Proceed once we have clicked, been redirected, and network traffic has quieted down
+        console.log("Waiting for page navigation...");
+        await Promise.all([
+            page.click("#idSIButton9"),
+            page.waitForNavigation({ waitUntil: 'networkidle2' })
+        ]).catch((reason) => {
+            console.log("Navigation failed. Reason: " + reason);
+        });
+
+        // Wait for gamesList element to be loaded into the DOM
+        console.log("Waiting for DOM elements to load...");
+        await page.waitForSelector("#gamesList").catch((reason: any) => {
+            console.log("Waiting for gamesList failed. Reason: " + reason);
+            return;
+        });
+
+        // Redirect console logging calls in page context
+        page.on('console', msg => {
+            console.log(msg.text());
+        });
+
+        // Execute script on page to scrape game elements from achievements tab
+        console.log("Evaluating...");
+        let games: XboxGame[] = await page.evaluate(() => {
+            let gameElements: HTMLElement[] = $('xbox-title-item').get();
+            
+            let games: XboxGame[] = [];
+            for (let gameElement of gameElements) {
+                let titleIdUrl = $(gameElement).find('a.recentProgressLinkWrapper').attr('href');
+                let titleIdRegex = /titleid=(.*?)&/i;
+                let titleId = titleIdUrl.match(titleIdRegex)[1];
+    
+                let gamerscoreInfoValues: string[] = $(gameElement).find(".gamerscoreinfo").text().trim().split("/");
+                let currentGamerscore: number = parseInt(gamerscoreInfoValues[0]);
+                let maxGamerscore: number = parseInt(gamerscoreInfoValues[1]);
+                let image: string = $(gameElement).find(".xboxprofileimage > img").attr('src');
+                let titleName: string = $(gameElement).find('p.recentProgressItemTitle').text();
+                games.push({
+                    Name: titleName,
+                    TitleId: titleId,
+                    Image: image,
+                    CurrentGamerscore: currentGamerscore,
+                    MaxGamerscore: maxGamerscore
+                });
+            }
+
+            return games;
+        });
+
+        console.log("Filtering games list...");
+        games = games.filter(x => x.MaxGamerscore > 0);
+
+        // Log list of games to the console
+        console.log(JSON.stringify(games));
+
+        console.log("Closing browser...");
+        await browser.close();
+
+        return games;
+    }
+}

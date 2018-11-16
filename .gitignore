@@ -59,3 +59,9 @@ typings/
 
 # next.js build output
 .next
+
+# Output of 'tsc'
+dist/
+
+# Ignore local change to configuration
+config/
