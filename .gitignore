@@ -65,3 +65,6 @@ dist/
 
 # Ignore local change to configuration
 config/
+
+# Ignore local profile data saved by puppeteer
+puppeteer_user_data/
