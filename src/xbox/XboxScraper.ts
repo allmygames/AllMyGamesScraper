@@ -1,26 +1,18 @@
-const puppeteer = require('puppeteer');
 import XboxGame from './XboxGame';
-import { Page, Browser } from 'puppeteer';
+import { Page } from 'puppeteer';
 var $ = require('jquery');
 
-export default class XboxScraper {
-    private browser: any;
-    
+export default class XboxScraper {   
     public Username: string;
     public Password: string;
 
-    constructor(username: string, password: string, browser: Browser) {
+    constructor(username: string, password: string) {
         this.Username = username;
         this.Password = password;
-
-        this.browser = browser;
     }
 
-    public async ScrapeXboxGames(gamertag: string): Promise<XboxGame[]> {
+    public async ScrapeXboxGames(gamertag: string, page: Page): Promise<XboxGame[]> {
         let url: string = "https://account.xbox.com/en-us/profile?gamertag=" + gamertag + "&activetab=main:mainTab2";
-
-        // Create browser page
-        const page: Page = await this.browser.newPage();
 
         // Attempting to navigate to profile page
         await page.goto(url, { waitUntil: 'networkidle0' })

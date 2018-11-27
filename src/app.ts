@@ -1,21 +1,29 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const { Cluster } = require('puppeteer-cluster');
+
 import XboxScraper from "./xbox/XboxScraper";
 import XboxGame from "./xbox/XboxGame";
 import PlayStationScraper from "./playstation/PlayStationScraper";
 import PlayStationGame from "./playstation/PlayStationGame";
 import { Browser } from "puppeteer";
+
 var config = require('config');
 
 const app = express();
 const port = 3000;
 
-const HEADLESS = false;
-
 console.log("Configuring server...");
 
 (async () => {
-    let browser: Browser = await puppeteer.launch({ headless: HEADLESS, userDataDir: './puppeteer_user_data/' });
+    let cluster = await Cluster.launch({
+        concurrency: Cluster.CONCURRENCY_PAGE,
+        maxConcurrency: 5,
+        puppeteerOptions: {
+            headless: config.get('headless'), 
+            userDataDir: './puppeteer_user_data/'
+        }
+    });
 
     app.get('/', (req, res) => {
         res.send('Hello World!');
@@ -39,13 +47,15 @@ console.log("Configuring server...");
         }
     
         (async () => {
-            let scraper = new PlayStationScraper(browser);
-            let games: PlayStationGame[] = await scraper.ScrapePlayStationGames(psnid);
-
-            let endTime: number = new Date().getTime();
-            console.log("Sending response...");
-            console.log(`Response time: ${endTime-startTime}ms`)
-            res.send(JSON.stringify(games));
+            await cluster.queue(async ({ page }) => {
+                let scraper = new PlayStationScraper();
+                let games: PlayStationGame[] = await scraper.ScrapePlayStationGames(psnid, page);
+    
+                let endTime: number = new Date().getTime();
+                console.log("Sending response...");
+                console.log(`Response time: ${endTime-startTime}ms`)
+                res.send(JSON.stringify(games));
+            });
         })();
     });
     
@@ -67,13 +77,15 @@ console.log("Configuring server...");
         }
     
         (async () => {
-            let scraper = new XboxScraper(config.get('MSA.username'), config.get('MSA.password'), browser);
-            let games: XboxGame[] = await scraper.ScrapeXboxGames(gamertag);
-
-            let endTime: number = new Date().getTime();
-            console.log("Sending response...");
-            console.log(`Response time: ${endTime-startTime}ms`)
-            res.send(JSON.stringify(games));
+            await cluster.queue(async ({ page }) => {
+                let scraper = new XboxScraper(config.get('MSA.username'), config.get('MSA.password'));
+                let games: XboxGame[] = await scraper.ScrapeXboxGames(gamertag, page);
+    
+                let endTime: number = new Date().getTime();
+                console.log("Sending response...");
+                console.log(`Response time: ${endTime-startTime}ms`)
+                res.send(JSON.stringify(games));
+            });
         })();
     });
     

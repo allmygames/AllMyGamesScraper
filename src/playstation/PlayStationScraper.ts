@@ -5,19 +5,12 @@ import { Page } from 'puppeteer';
 var $ = require('jquery');
 
 export default class PlayStationScraper {
-    private browser: any;
-
-    constructor(browser: any) {
-        this.browser = browser;
-    }
-
-    public async ScrapePlayStationGames(psnId: string): Promise<PlayStationGame[]> {
-        let url: string = "https://my.playstation.com/profile/" + psnId + "/trophies";
-
-        // Create browser page
-        const page: Page = await this.browser.newPage();
+    public async ScrapePlayStationGames(psnId: string, page: Page): Promise<PlayStationGame[]> {
+        console.log(`Scraping PlayStation games for ${psnId}...`);
 
         // Attempting to navigate to profile page
+        console.log("Attempting to navigate to profile page...");
+        let url: string = "https://my.playstation.com/profile/" + psnId + "/trophies";
         await page.goto(url, { waitUntil: 'networkidle0' })
             .catch((reason) => {
                 return null;
@@ -34,10 +27,10 @@ export default class PlayStationScraper {
         
         console.log("Already logged in with existing session.");
 
-        // Redirect console logging calls in page context
-        page.on('console', msg => {
-            console.log(msg.text());
-        });
+        // // Redirect console logging calls in page context
+        // page.on('console', msg => {
+        //     console.log(msg.text());
+        // });
 
         // Execute script on page to scrape game elements from achievements tab
         await page.addScriptTag({url: 'https://code.jquery.com/jquery-3.2.1.min.js'});
