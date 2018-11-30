@@ -1,6 +1,4 @@
-const puppeteer = require('puppeteer');
 import PlayStationGame, { PlayStationGameTrophyProgress } from './PlayStationGame';
-import * as fs from 'fs';
 import { Page } from 'puppeteer';
 var $ = require('jquery');
 
@@ -23,31 +21,51 @@ export default class PlayStationScraper {
             // will be able to access PlayStation profile data.
             console.log("Redirected to login page. Manual authentication is required.");
             return null;
+        } else {
+            console.log("Already logged in with existing session.");
         }
+
+        // Click "View more" button to start loading additional games
+        // Subsequent batches of games will load dynamically upon scrolling to the bottom of the page
+        await page.click('.load-more-btn');
         
-        console.log("Already logged in with existing session.");
+        // Adding jquery script to page so that it can be used in page context
+        await page.addScriptTag({url: 'https://code.jquery.com/jquery-3.2.1.min.js', content: "text/javascript"});
 
-        // // Redirect console logging calls in page context
-        // page.on('console', msg => {
-        //     console.log(msg.text());
-        // });
+        // Keep scrolling down the page until games stop loading in
+        let previousHeight: number;
+        let done: boolean = false;
+        while (!done) {
+            // Measure height of page
+            previousHeight = await page.evaluate('document.body.scrollHeight');
 
-        // Execute script on page to scrape game elements from achievements tab
-        await page.addScriptTag({url: 'https://code.jquery.com/jquery-3.2.1.min.js'});
-        let games: PlayStationGame[] = await page.evaluate(() => {
+            // Scroll to bottom of page to trigger request
+            await page.evaluate(() => {
+                console.log("Scrolling...");
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+
+            // Wait for page length to increase (indicating results returned)
+            await page.waitForFunction(`document.body.scrollHeight > ${previousHeight}`, {
+                timeout: 1000
+            }).catch(async () => {
+                console.log("Done loading games.");
+                done = true;
+            });
+        }
+
+        let games: PlayStationGame[] = await page.evaluate(() => {        
             let gameElements: HTMLElement[] = $('.game-tile-link').get();
-            console.log(`Found ${gameElements.length} game elements.`);
-
-            let games: PlayStationGame[] = [];
+            let games = [];
             for (let gameElement of gameElements) {
-                let titleIdUrl = $(gameElement).find('.game-tile__link').attr('href');
-                let titleIdRegex = /\/trophies\/details\/(.*?)\/default/i;
-                let titleId = titleIdUrl.match(titleIdRegex)[1];
-
+                let titleIdUrl: string = $(gameElement).find('.game-tile__link').attr('href');
+                let titleIdRegex: RegExp = /\/trophies\/details\/(.*?)\/default/i;
+                let titleId: string = titleIdUrl.match(titleIdRegex)[1];
+        
                 let image: string = $(gameElement).find('.game-tile__image').attr('src');
                 let titleName: string = $(gameElement).find('h2.game-tile__title').attr('title');
                 let platforms: string[] = $(gameElement).find('.game-platform-list .game-platform').get().map(x => $(x).text());
-
+        
                 let trophyProgress: PlayStationGameTrophyProgress = {
                     CompletionPercentage: $(gameElement).find('.progress-bar__progress-bar-element').attr('aria-valuenow'),
                     EarnedBronze: $(gameElement).find('.trophy-count__bronze-tier').text(),
@@ -55,7 +73,7 @@ export default class PlayStationScraper {
                     EarnedGold: $(gameElement).find('.trophy-count__gold-tier').text(),
                     EarnedPlatinum: $(gameElement).find('.trophy-count__platinum-tier').text()
                 };
-
+        
                 games.push({
                     Image: image,
                     Name: titleName,
@@ -68,9 +86,7 @@ export default class PlayStationScraper {
             return games;
         });
 
-        // Log list of games to the console
-        console.log(JSON.stringify(games));
-
+        console.log(`Returning ${games.length} games...`);
         return games;
     }
 }

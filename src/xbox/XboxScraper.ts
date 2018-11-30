@@ -64,11 +64,6 @@ export default class XboxScraper {
             return null;
         });
 
-        // Redirect console logging calls in page context
-        page.on('console', msg => {
-            console.log(msg.text());
-        });
-
         // Execute script on page to scrape game elements from achievements tab
         console.log("Evaluating...");
         let games: XboxGame[] = await page.evaluate(() => {
@@ -99,8 +94,6 @@ export default class XboxScraper {
 
         console.log("Filtering games list...");
         games = games.filter(x => x.MaxGamerscore > 0);
-
-        page.close();
 
         console.log("Done.");
         return games;

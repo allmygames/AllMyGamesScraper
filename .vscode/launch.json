@@ -7,15 +7,15 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "cwd": "${workspaceFolder}",
+            "name": "Launch via npm",
+            "port": 9229,
             "program": "${workspaceFolder}\\dist\\index.js",
             "preLaunchTask": "tsc: build - tsconfig.json",
-            "outFiles": [
-                "${workspaceFolder}/dist/**/*.js"
+            "runtimeArgs": [
+                "run-script", "debug"
             ],
-            "args": [
-                "SlyCaptainFlint"
-            ]
+            "runtimeExecutable": "npm"
         }
     ]
 }
