@@ -3,6 +3,7 @@ Node service that uses Puppeteer to scrape game profile data from providers incl
 
 ## Setup
 npm install
+
 tsc
 
 For PlayStation Network scraping:
