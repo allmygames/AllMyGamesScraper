@@ -6,6 +6,8 @@ import XboxScraper from "./xbox/XboxScraper";
 import XboxGame from "./xbox/XboxGame";
 import PlayStationScraper from "./playstation/PlayStationScraper";
 import PlayStationGame from "./playstation/PlayStationGame";
+import PlayStationResponse from "./playstation/PlayStationResponse";
+import XboxResponse from "./xbox/XboxResponse";
 
 var config = require('config');
 
@@ -57,7 +59,7 @@ const userAgentString: string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
     
                 let endTime: number = new Date().getTime();
                 console.log(`Response time: ${endTime-startTime}ms`)
-                res.send(JSON.stringify(games));
+                res.send(JSON.stringify(new PlayStationResponse(games)));
             });
         })();
     });
@@ -92,7 +94,7 @@ const userAgentString: string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
     
                 let endTime: number = new Date().getTime();
                 console.log(`Response time: ${endTime-startTime}ms`)
-                res.send(JSON.stringify(games));
+                res.send(JSON.stringify(new XboxResponse(games)));
             });
         })();
     });

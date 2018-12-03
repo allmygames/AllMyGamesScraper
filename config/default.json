@@ -1,5 +1,5 @@
 {
-    "headless": false,
+    "headless": true,
     "MSA": {
         "username": "ENTER MICROSOFT ACCOUNT USERNAME",
         "password": "ENTER MICROSOFT ACCOUNT PASSWORD"
