@@ -5,15 +5,17 @@ const resolve = require('path').resolve;
 import XboxScraper from "./xbox/XboxScraper";
 import XboxGame from "./xbox/XboxGame";
 import PlayStationScraper from "./playstation/PlayStationScraper";
-import PlayStationGame from "./playstation/PlayStationGame";
 import PlayStationResponse from "./playstation/PlayStationResponse";
 import XboxResponse from "./xbox/XboxResponse";
 
 var config = require('config');
 
 const app = express();
+
 const port: number = 3000;
 const userAgentString: string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36";
+
+const redirectPageContextLogging: boolean = false;
 
 (async () => {
     let absoluteUserDataDir = resolve(config.get('puppeteerUserDataDir'));
@@ -50,16 +52,19 @@ const userAgentString: string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
                 page.setUserAgent(userAgentString);
 
                 // Redirect console logging calls in page context
-                page.on('console', msg => {
-                    console.log(msg.text());
-                });
+                if (redirectPageContextLogging) {
+                    page.on('console', msg => {
+                        console.log(msg.text());
+                    });
+                }
 
                 let scraper = new PlayStationScraper();
-                let games: PlayStationGame[] = await scraper.ScrapePlayStationGames(psnid, page);
+                let response: PlayStationResponse = await scraper.ScrapePlayStationGames(psnid, page);
     
                 let endTime: number = new Date().getTime();
                 console.log(`Response time: ${endTime-startTime}ms`)
-                res.send(JSON.stringify(new PlayStationResponse(games)));
+
+                res.send(JSON.stringify(response));
             });
         })();
     });

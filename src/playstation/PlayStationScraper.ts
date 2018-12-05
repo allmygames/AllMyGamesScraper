@@ -1,17 +1,67 @@
 import PlayStationGame, { PlayStationGameTrophyProgress } from './PlayStationGame';
 import { Page } from 'puppeteer';
+import PlayStationResponse from './PlayStationResponse';
 var $ = require('jquery');
 
 export default class PlayStationScraper {
-    public async ScrapePlayStationGames(psnId: string, page: Page): Promise<PlayStationGame[]> {
+    public async ScrapePlayStationGames(psnId: string, page: Page): Promise<PlayStationResponse> {
         console.log(`Scraping PlayStation games for ${psnId}...`);
 
+        // Attempting to navigate to profile page
+        console.log("Attempting to navigate to profile page...");
+        let navigationSuccessful: boolean = await this.navigateToProfilePage(psnId, page);
+        if (!navigationSuccessful) {
+            console.log("Failed to navigate to profile page.")
+            return null;
+        }
+
+        await this.addJqueryScript(page);
+
+        // Determine verification status for profile
+        console.log("Determining profile verification status...");
+        let verificationStatus: string = await this.verifyPlayStationProfile(page);
+        console.log(`VerificationStatus: ${verificationStatus}`);
+
+        if (verificationStatus != "Verified") {
+            console.log("Returning failure response");
+            return new PlayStationResponse(null, verificationStatus);
+        }
+        
+        let games: PlayStationGame[] = await this.scrapeGamesFromProfilePage(page);
+
+        console.log(`Returning ${games.length} games...`);
+        return new PlayStationResponse(games, "Verified");
+    }
+
+    public async VerifyPlayStationProfile(psnId: string, page: Page): Promise<PlayStationResponse> {
+        console.log(`Scraping PlayStation games for ${psnId}...`);
+
+        // Attempting to navigate to profile page
+        console.log("Attempting to navigate to profile page...");
+        let navigationSuccessful: boolean = await this.navigateToProfilePage(psnId, page);
+        if (!navigationSuccessful) {
+            console.log("Failed to navigate to profile page.")
+            return null;
+        }
+
+        await this.addJqueryScript(page);
+
+        let verificationStatus: string = await this.verifyPlayStationProfile(page);
+        return new PlayStationResponse(null, verificationStatus);
+    }
+
+    private async addJqueryScript(page: Page): Promise<void> {
+        await page.addScriptTag({url: 'https://code.jquery.com/jquery-3.2.1.min.js', content: "text/javascript"});
+    }
+
+    private async navigateToProfilePage(psnId: string, page: Page): Promise<boolean> {
         // Attempting to navigate to profile page
         console.log("Attempting to navigate to profile page...");
         let url: string = "https://my.playstation.com/profile/" + psnId + "/trophies";
         await page.goto(url, { waitUntil: 'networkidle0' })
             .catch((reason) => {
-                return null;
+                console.log("Failed to navigate to profile page.")
+                return false;
             });
 
         let redirectedToLoginPage = !page.url().startsWith(url);
@@ -20,17 +70,18 @@ export default class PlayStationScraper {
             // User must configure the browser to not be headless and log in manually once before this scraper
             // will be able to access PlayStation profile data.
             console.log("Redirected to login page. Manual authentication is required.");
-            return null;
-        } else {
-            console.log("Already logged in with existing session.");
+            return false;
         }
 
+        return true;
+    }
+
+    private async scrapeGamesFromProfilePage(page: Page): Promise<PlayStationGame[]> {
+        console.log("Scraping games from profile page...");
+        
         // Click "View more" button to start loading additional games
         // Subsequent batches of games will load dynamically upon scrolling to the bottom of the page
         await page.click('.load-more-btn');
-        
-        // Adding jquery script to page so that it can be used in page context
-        await page.addScriptTag({url: 'https://code.jquery.com/jquery-3.2.1.min.js', content: "text/javascript"});
 
         // Keep scrolling down the page until games stop loading in
         let previousHeight: number;
@@ -54,7 +105,7 @@ export default class PlayStationScraper {
             });
         }
 
-        let games: PlayStationGame[] = await page.evaluate(() => {        
+        return await page.evaluate(() => {        
             let gameElements: HTMLElement[] = $('.game-tile-link').get();
             let games = [];
             for (let gameElement of gameElements) {
@@ -85,8 +136,39 @@ export default class PlayStationScraper {
 
             return games;
         });
+    }
 
-        console.log(`Returning ${games.length} games...`);
-        return games;
+    private async verifyPlayStationProfile(page: Page): Promise<string> {
+        // Determine verification status for profile
+        console.log("Determining profile verification status...");
+        let verificationStatus: string = await page.evaluate(() => {
+            // If the profile doesn't exist, return null immediately
+            if ($('.not-found-page__container').length > 0) {
+                console.log("Does not exist.")
+                return "DoesNotExist";
+            }
+
+            let noTrophies: boolean = $('.no-trophy__label--primary').length;
+            if (!noTrophies) {
+                return "Verified";
+            }
+
+            let noTrophiesText: string = $('.no-trophy__label--primary').first().text();
+            if (noTrophiesText.includes("hasn’t earned any trophies yet.")) {
+                console.log("NoGames");
+                return "NoGames";
+            } else if (noTrophiesText.includes("Not public.")) {
+                console.log("Private");
+                return "Private";
+            } else {
+                console.log("VerificationFailed");
+                return "VerificationFailed";
+            }
+        }).catch((reason) => {
+            console.log(`Failed with reason: ${reason}`);
+        });
+
+        console.log(`VerificationStatus: ${verificationStatus}`);
+        return verificationStatus;
     }
 }

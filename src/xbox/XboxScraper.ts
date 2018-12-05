@@ -71,13 +71,20 @@ export default class XboxScraper {
             
             let games: XboxGame[] = [];
             for (let gameElement of gameElements) {
-                let titleIdUrl = $(gameElement).find('a.recentProgressLinkWrapper').attr('href');
-                let titleIdRegex = /titleid=(.*?)&/i;
-                let titleId = titleIdUrl.match(titleIdRegex)[1];
-    
                 let gamerscoreInfoValues: string[] = $(gameElement).find(".gamerscoreinfo").text().trim().split("/");
                 let currentGamerscore: number = parseInt(gamerscoreInfoValues[0]);
                 let maxGamerscore: number = parseInt(gamerscoreInfoValues[1]);
+
+                if (maxGamerscore == 0) {
+                    // Skip any games with no gamerscore
+                    // These are either not Xbox games, or demo/beta products
+                    continue;
+                }
+                
+                let titleIdUrl = $(gameElement).find('a.recentProgressLinkWrapper').attr('href');
+                let titleIdRegex = /titleid=(.*?)&/i;
+                let titleId = titleIdUrl.match(titleIdRegex)[1];
+                
                 let image: string = $(gameElement).find(".xboxprofileimage > img").attr('src');
                 let titleName: string = $(gameElement).find('p.recentProgressItemTitle').text();
                 games.push({
