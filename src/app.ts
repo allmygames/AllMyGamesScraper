@@ -69,6 +69,39 @@ const redirectPageContextLogging: boolean = false;
         })();
     });
     
+    app.get('/playstation/:psnid/verify', (req, res) => {
+        let startTime: number = new Date().getTime();
+        res.setHeader('Content-Type', 'application/json');
+
+        var psnid = req.params.psnid;
+        if (!psnid) {
+            res.send(JSON.stringify({
+                message: "'psnid' route parameter is required."
+            }));
+        }
+    
+        (async () => {
+            await cluster.queue(async ({ page }) => {
+                page.setUserAgent(userAgentString);
+
+                // Redirect console logging calls in page context
+                if (redirectPageContextLogging) {
+                    page.on('console', msg => {
+                        console.log(msg.text());
+                    });
+                }
+
+                let scraper = new PlayStationScraper();
+                let response: PlayStationResponse = await scraper.VerifyPlayStationProfile(psnid, page);
+    
+                let endTime: number = new Date().getTime();
+                console.log(`Response time: ${endTime-startTime}ms`)
+
+                res.send(JSON.stringify(response));
+            });
+        })();
+    });
+
     app.get('/steam/:steamcommunityid', (req, res) => {
         res.setHeader('Content-Type', 'application/json');
     });

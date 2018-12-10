@@ -81,7 +81,9 @@ export default class PlayStationScraper {
         
         // Click "View more" button to start loading additional games
         // Subsequent batches of games will load dynamically upon scrolling to the bottom of the page
-        await page.click('.load-more-btn');
+        await page.click('.load-more-btn').catch((reason) => {
+            // No button present
+        });
 
         // Keep scrolling down the page until games stop loading in
         let previousHeight: number;
