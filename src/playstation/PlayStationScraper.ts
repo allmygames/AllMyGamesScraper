@@ -9,7 +9,7 @@ export default class PlayStationScraper {
 
         // Attempting to navigate to profile page
         console.log("Attempting to navigate to profile page...");
-        let navigationSuccessful: boolean = await this.navigateToProfilePage(psnId, page);
+        let navigationSuccessful: boolean = await this.navigateToTrophiesPage(psnId, page);
         if (!navigationSuccessful) {
             console.log("Failed to navigate to profile page.")
             return null;
@@ -24,13 +24,13 @@ export default class PlayStationScraper {
 
         if (verificationStatus != "Verified") {
             console.log("Returning failure response");
-            return new PlayStationResponse(null, verificationStatus);
+            return new PlayStationResponse(null, psnId, verificationStatus);
         }
         
         let games: PlayStationGame[] = await this.scrapeGamesFromProfilePage(page);
 
         console.log(`Returning ${games.length} games...`);
-        return new PlayStationResponse(games, "Verified");
+        return new PlayStationResponse(games, psnId, "Verified");
     }
 
     public async VerifyPlayStationProfile(psnId: string, page: Page): Promise<PlayStationResponse> {
@@ -44,10 +44,22 @@ export default class PlayStationScraper {
             return null;
         }
 
+        console.log(`Parsing ${page.url()}...`);
+        let profileUrlRegex: RegExp = /https:\/\/my.playstation.com\/profile\/(.*)/i;
+        let urlPsnId: string = page.url().match(profileUrlRegex)[1];
+
+        // Attempting to navigate to trophies page
+        console.log("Attempting to navigate to trophies page...");
+        navigationSuccessful = await this.navigateToTrophiesPage(urlPsnId, page);
+        if (!navigationSuccessful) {
+            console.log("Failed to navigate to trophies page.")
+            return null;
+        }
+
         await this.addJqueryScript(page);
 
         let verificationStatus: string = await this.verifyPlayStationProfile(page);
-        return new PlayStationResponse(null, verificationStatus);
+        return new PlayStationResponse(null, urlPsnId, verificationStatus);
     }
 
     private async addJqueryScript(page: Page): Promise<void> {
@@ -55,6 +67,28 @@ export default class PlayStationScraper {
     }
 
     private async navigateToProfilePage(psnId: string, page: Page): Promise<boolean> {
+        // Attempting to navigate to profile page
+        console.log("Attempting to navigate to profile page...");
+        let url: string = "https://my.playstation.com/profile/" + psnId;
+        await page.goto(url, { waitUntil: 'networkidle0' })
+            .catch((reason) => {
+                console.log("Failed to navigate to profile page.")
+                return false;
+            });
+
+        let redirectedToLoginPage = !page.url().startsWith("https://my.playstation.com/profile/");
+        if (redirectedToLoginPage) {
+            // The scraper can NOT log into my.playstation.com automatically because it employs a recaptcha.
+            // User must configure the browser to not be headless and log in manually once before this scraper
+            // will be able to access PlayStation profile data.
+            console.log("Redirected to login page. Manual authentication is required.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private async navigateToTrophiesPage(psnId: string, page: Page): Promise<boolean> {
         // Attempting to navigate to profile page
         console.log("Attempting to navigate to profile page...");
         let url: string = "https://my.playstation.com/profile/" + psnId + "/trophies";
@@ -112,7 +146,7 @@ export default class PlayStationScraper {
             let games = [];
             for (let gameElement of gameElements) {
                 let titleIdUrl: string = $(gameElement).find('.game-tile__link').attr('href');
-                let titleIdRegex: RegExp = /\/trophies\/details\/(.*?)\/default/i;
+                let titleIdRegex: RegExp = /\/trophies\/details\/(.*)\/default/i;
                 let titleId: string = titleIdUrl.match(titleIdRegex)[1];
         
                 let image: string = $(gameElement).find('.game-tile__image').attr('src');
